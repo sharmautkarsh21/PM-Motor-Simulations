@@ -1,0 +1,28 @@
+# FEMM working/temporary files
+*_working.fem
+*.bak
+
+# Simulation outputs (keep code, ignore results)
+*.csv
+*.png
+*.log
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files (optional)
+test_*.py
