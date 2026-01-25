@@ -41,6 +41,9 @@ FULL_CYCLE = True  # True = simulate full electrical cycle (360°), False = 1/6 
 INITIAL_ROTOR_POSITION_DEG = 10.0  # Starting mechanical rotor position in degrees
 ENABLE_LIVE_PLOT = True  # True = show live updating plot during simulation
 SAVE_CSV = True  # True = save results to CSV file
+# Output directory for generated artifacts
+OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+OUTPUT_DIR.mkdir(exist_ok=True)
 # --------------------------------------
 
 
@@ -299,7 +302,7 @@ def main() -> None:
         
         # Save to CSV
         if SAVE_CSV:
-            csv_filename = f"simulation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            csv_filename = OUTPUT_DIR / f"simulation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             save_results_to_csv(results, csv_filename)
         
         # Finalize live plot (save and display)
@@ -314,7 +317,10 @@ def main() -> None:
 def save_results_to_csv(results: List[TimeStepResult], filename: str = "simulation_results.csv") -> None:
     """Save simulation results to CSV file."""
     try:
-        with open(filename, 'w', newline='') as csvfile:
+        output_path = Path(filename)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, 'w', newline='') as csvfile:
             fieldnames = [
                 'Step', 'Time_ms', 'Electrical_Angle_deg', 'Mechanical_Angle_deg',
                 'Current_A_Phase', 'Current_B_Phase', 'Current_C_Phase',

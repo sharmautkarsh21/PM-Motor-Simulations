@@ -7,6 +7,7 @@ full zoom/pan/resize capabilities during simulation.
 import numpy as np
 from typing import List, Optional
 from dataclasses import dataclass
+from pathlib import Path
 import threading
 import time
 import logging
@@ -47,6 +48,8 @@ class DashLivePlotter:
         self.update_interval_ms = update_interval_ms
         self.app = None
         self.server_thread = None
+        self.output_dir = Path(__file__).resolve().parent / "output"
+        self.output_dir.mkdir(exist_ok=True)
         self.data = {
             'elec_angles': [],
             'mech_angles': [],
@@ -495,17 +498,17 @@ class DashLivePlotter:
                 print("\nSaving plots to PNG files...")
                 flux_fig, backmf_fig, torque_fig, current_fig = self._create_plots()
                 
-                pio.write_image(flux_fig, "flux_linkage.png", width=1400, height=400)
-                print("  ✓ flux_linkage.png")
+                pio.write_image(flux_fig, self.output_dir / "flux_linkage.png", width=1400, height=400)
+                print(f"  ✓ {self.output_dir / 'flux_linkage.png'}")
                 
-                pio.write_image(backmf_fig, "back_emf.png", width=1400, height=400)
-                print("  ✓ back_emf.png")
+                pio.write_image(backmf_fig, self.output_dir / "back_emf.png", width=1400, height=400)
+                print(f"  ✓ {self.output_dir / 'back_emf.png'}")
                 
-                pio.write_image(torque_fig, "torque.png", width=1400, height=400)
-                print("  ✓ torque.png")
+                pio.write_image(torque_fig, self.output_dir / "torque.png", width=1400, height=400)
+                print(f"  ✓ {self.output_dir / 'torque.png'}")
                 
-                pio.write_image(current_fig, "currents.png", width=1400, height=400)
-                print("  ✓ currents.png")
+                pio.write_image(current_fig, self.output_dir / "currents.png", width=1400, height=400)
+                print(f"  ✓ {self.output_dir / 'currents.png'}")
                 
                 print("\nAll plots saved successfully!")
             except Exception as e:
