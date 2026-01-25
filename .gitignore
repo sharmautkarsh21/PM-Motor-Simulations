@@ -26,3 +26,14 @@ Thumbs.db
 
 # Test files (optional)
 test_*.py
+
+
+# Test files and folders
+test_*.py
+test/
+tests/
+
+# Literature and documentation folders
+literature/
+docs/reference/
+papers/
