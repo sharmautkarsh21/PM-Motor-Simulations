@@ -1,6 +1,8 @@
 # FEMM working/temporary files
 *_working.fem
 *.bak
+temp_inductance_*.fem
+temp_inductance_*.ans
 
 # Simulation outputs (keep code, ignore results)
 *.csv
