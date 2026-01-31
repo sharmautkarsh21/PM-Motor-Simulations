@@ -38,6 +38,17 @@ class TimeStepResult:
     flux_linkage_a: Optional[float] = None
     flux_linkage_b: Optional[float] = None
     flux_linkage_c: Optional[float] = None
+    backmf_a: Optional[float] = None
+    backmf_b: Optional[float] = None
+    backmf_c: Optional[float] = None
+    # Inductance parameters
+    Ld: Optional[float] = None
+    Lq: Optional[float] = None
+    L0: Optional[float] = None
+    saliency_ratio: Optional[float] = None
+    Laa: Optional[float] = None
+    Lab: Optional[float] = None
+    Lac: Optional[float] = None
 
 
 class DashLivePlotter:
@@ -64,6 +75,13 @@ class DashLivePlotter:
             'ia_vals': [],
             'ib_vals': [],
             'ic_vals': [],
+            'ld_vals': [],
+            'lq_vals': [],
+            'l0_vals': [],
+            'saliency_vals': [],
+            'laa_vals': [],
+            'lab_vals': [],
+            'lac_vals': [],
         }
         self.running = False
         self.lock = threading.Lock()
@@ -83,6 +101,8 @@ class DashLivePlotter:
             dcc.Graph(id='backmf-plot', style={'height': '300px'}),
             dcc.Graph(id='torque-plot', style={'height': '300px'}),
             dcc.Graph(id='current-plot', style={'height': '300px'}),
+            dcc.Graph(id='inductance-plot', style={'height': '300px'}),
+            dcc.Graph(id='saliency-plot', style={'height': '300px'}),
             
             dcc.Interval(
                 id='interval-component',
@@ -95,7 +115,9 @@ class DashLivePlotter:
             [Output('flux-plot', 'figure'),
              Output('backmf-plot', 'figure'),
              Output('torque-plot', 'figure'),
-             Output('current-plot', 'figure')],
+             Output('current-plot', 'figure'),
+             Output('inductance-plot', 'figure'),
+             Output('saliency-plot', 'figure')],
             [Input('interval-component', 'n_intervals')]
         )
         def update_plots(n):
@@ -112,6 +134,13 @@ class DashLivePlotter:
                 ia_vals = self.data['ia_vals'].copy()
                 ib_vals = self.data['ib_vals'].copy()
                 ic_vals = self.data['ic_vals'].copy()
+                ld_vals = self.data['ld_vals'].copy()
+                lq_vals = self.data['lq_vals'].copy()
+                l0_vals = self.data['l0_vals'].copy()
+                saliency_vals = self.data['saliency_vals'].copy()
+                laa_vals = self.data['laa_vals'].copy()
+                lab_vals = self.data['lab_vals'].copy()
+                lac_vals = self.data['lac_vals'].copy()
             
             # Skip first point for back-emf (derivative starts at second point)
             time_backmf_ms = [t * 1000 for t in time_vals[1:]] if len(time_vals) > 1 else []
@@ -268,7 +297,96 @@ class DashLivePlotter:
                 xaxis_range=x_range_current
             )
             
-            return flux_fig, backmf_fig, torque_fig, current_fig
+            # Inductance plot (Ld, Lq, L0)
+            inductance_fig = go.Figure()
+            if len(elec_angles) > 0 and len(ld_vals) > 0:
+                # Convert to microhenries for better readability
+                ld_uh = [val * 1e6 for val in ld_vals]
+                lq_uh = [val * 1e6 for val in lq_vals]
+                l0_uh = [val * 1e6 for val in l0_vals]
+                
+                inductance_fig.add_trace(go.Scatter(
+                    x=elec_angles[:len(ld_vals)], y=ld_uh,
+                    mode='lines', name='Ld (d-axis)',
+                    line=dict(color='#e74c3c', width=2),
+                    connectgaps=False
+                ))
+                inductance_fig.add_trace(go.Scatter(
+                    x=elec_angles[:len(lq_vals)], y=lq_uh,
+                    mode='lines', name='Lq (q-axis)',
+                    line=dict(color='#3498db', width=2),
+                    connectgaps=False
+                ))
+                inductance_fig.add_trace(go.Scatter(
+                    x=elec_angles[:len(l0_vals)], y=l0_uh,
+                    mode='lines', name='L0 (zero-seq)',
+                    line=dict(color='#95a5a6', width=2, dash='dash'),
+                    connectgaps=False
+                ))
+            
+            x_range_inductance = None
+            if len(elec_angles) > 0 and len(ld_vals) > 0:
+                x_min = min(elec_angles[:len(ld_vals)])
+                x_max = max(elec_angles[:len(ld_vals)])
+                x_range_inductance = [x_min, x_max + (x_max - x_min) * 0.02]
+            
+            inductance_fig.update_layout(
+                title='Inductances (dq0) vs Electrical Rotor Position',
+                xaxis_title='Electrical Rotor Position (°)',
+                yaxis_title='Inductance (µH)',
+                hovermode='x unified',
+                template='plotly_white',
+                showlegend=True,
+                legend=dict(x=1.02, y=1),
+                margin=dict(l=50, r=150, t=50, b=50),
+                xaxis_range=x_range_inductance
+            )
+            
+            # Phase inductance plot (Laa, Lab, Lac)
+            phase_inductance_fig = go.Figure()
+            if len(elec_angles) > 0 and len(laa_vals) > 0:
+                laa_uh = [val * 1e6 for val in laa_vals]
+                lab_uh = [val * 1e6 for val in lab_vals]
+                lac_uh = [val * 1e6 for val in lac_vals]
+
+                phase_inductance_fig.add_trace(go.Scatter(
+                    x=elec_angles[:len(laa_vals)], y=laa_uh,
+                    mode='lines', name='Laa',
+                    line=dict(color='#8e44ad', width=2),
+                    connectgaps=False
+                ))
+                phase_inductance_fig.add_trace(go.Scatter(
+                    x=elec_angles[:len(lab_vals)], y=lab_uh,
+                    mode='lines', name='Lab',
+                    line=dict(color='#16a085', width=2),
+                    connectgaps=False
+                ))
+                phase_inductance_fig.add_trace(go.Scatter(
+                    x=elec_angles[:len(lac_vals)], y=lac_uh,
+                    mode='lines', name='Lac',
+                    line=dict(color='#d35400', width=2),
+                    connectgaps=False
+                ))
+            
+            x_range_phase_inductance = None
+            if len(elec_angles) > 0 and len(laa_vals) > 0:
+                x_min = min(elec_angles[:len(laa_vals)])
+                x_max = max(elec_angles[:len(laa_vals)])
+                x_range_phase_inductance = [x_min, x_max + (x_max - x_min) * 0.02]
+            
+            phase_inductance_fig.update_layout(
+                title='Phase Inductances (Laa, Lab, Lac) vs Electrical Rotor Position',
+                xaxis_title='Electrical Rotor Position (°)',
+                yaxis_title='Inductance (µH)',
+                hovermode='x unified',
+                template='plotly_white',
+                showlegend=True,
+                legend=dict(x=1.02, y=1),
+                margin=dict(l=50, r=150, t=50, b=50),
+                xaxis_range=x_range_phase_inductance
+            )
+            
+            return flux_fig, backmf_fig, torque_fig, current_fig, inductance_fig, phase_inductance_fig
     
     def start_server(self, port: int = 8050) -> None:
         """Start Dash server in background thread."""
@@ -329,6 +447,22 @@ class DashLivePlotter:
             self.data['ia_vals'].append(result.ia)
             self.data['ib_vals'].append(result.ib)
             self.data['ic_vals'].append(result.ic)
+            
+            # Add inductance data
+            ld = result.Ld if result.Ld is not None else 0
+            lq = result.Lq if result.Lq is not None else 0
+            l0 = result.L0 if result.L0 is not None else 0
+            saliency = result.saliency_ratio if result.saliency_ratio is not None else 0
+            self.data['ld_vals'].append(ld)
+            self.data['lq_vals'].append(lq)
+            self.data['l0_vals'].append(l0)
+            self.data['saliency_vals'].append(saliency)
+            laa = result.Laa if result.Laa is not None else 0
+            lab = result.Lab if result.Lab is not None else 0
+            lac = result.Lac if result.Lac is not None else 0
+            self.data['laa_vals'].append(laa)
+            self.data['lab_vals'].append(lab)
+            self.data['lac_vals'].append(lac)
     
     def _create_plots(self):
         """Create final plot figures for saving."""
@@ -345,6 +479,10 @@ class DashLivePlotter:
             ia_vals = self.data['ia_vals'].copy()
             ib_vals = self.data['ib_vals'].copy()
             ic_vals = self.data['ic_vals'].copy()
+            ld_vals = self.data['ld_vals'].copy()
+            lq_vals = self.data['lq_vals'].copy()
+            l0_vals = self.data['l0_vals'].copy()
+            saliency_vals = self.data['saliency_vals'].copy()
         
         time_backmf_ms = [t * 1000 for t in time_vals[1:]] if len(time_vals) > 1 else []
         
@@ -482,7 +620,92 @@ class DashLivePlotter:
         current_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
         current_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
         
-        return flux_fig, backmf_fig, torque_fig, current_fig
+        # Inductance plot (Ld, Lq, L0)
+        inductance_fig = go.Figure()
+        if len(elec_angles) > 0 and len(ld_vals) > 0:
+            # Convert to microhenries for better readability
+            ld_uh = [val * 1e6 for val in ld_vals]
+            lq_uh = [val * 1e6 for val in lq_vals]
+            l0_uh = [val * 1e6 for val in l0_vals]
+            
+            inductance_fig.add_trace(go.Scatter(
+                x=elec_angles[:len(ld_vals)], y=ld_uh,
+                mode='lines', name='Ld (d-axis)',
+                line=dict(color='#e74c3c', width=2),
+                connectgaps=False
+            ))
+            inductance_fig.add_trace(go.Scatter(
+                x=elec_angles[:len(lq_vals)], y=lq_uh,
+                mode='lines', name='Lq (q-axis)',
+                line=dict(color='#3498db', width=2),
+                connectgaps=False
+            ))
+            inductance_fig.add_trace(go.Scatter(
+                x=elec_angles[:len(l0_vals)], y=l0_uh,
+                mode='lines', name='L0 (zero-seq)',
+                line=dict(color='#95a5a6', width=2, dash='dash'),
+                connectgaps=False
+            ))
+        
+        inductance_fig.update_layout(
+            title='Inductances (dq0) vs Electrical Rotor Position',
+            xaxis_title='Electrical Rotor Position (°)',
+            yaxis_title='Inductance (µH)',
+            hovermode='x unified',
+            template='plotly_white',
+            showlegend=True,
+            legend=dict(x=1.02, y=1),
+            margin=dict(l=50, r=150, t=50, b=50),
+            width=1400,
+            height=400
+        )
+        if len(elec_angles) > 0 and len(ld_vals) > 0:
+            inductance_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
+            inductance_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+        
+        # Phase inductance plot (Laa, Lab, Lac)
+        phase_inductance_fig = go.Figure()
+        if len(elec_angles) > 0 and len(laa_vals) > 0:
+            laa_uh = [val * 1e6 for val in laa_vals]
+            lab_uh = [val * 1e6 for val in lab_vals]
+            lac_uh = [val * 1e6 for val in lac_vals]
+
+            phase_inductance_fig.add_trace(go.Scatter(
+                x=elec_angles[:len(laa_vals)], y=laa_uh,
+                mode='lines', name='Laa',
+                line=dict(color='#8e44ad', width=2),
+                connectgaps=False
+            ))
+            phase_inductance_fig.add_trace(go.Scatter(
+                x=elec_angles[:len(lab_vals)], y=lab_uh,
+                mode='lines', name='Lab',
+                line=dict(color='#16a085', width=2),
+                connectgaps=False
+            ))
+            phase_inductance_fig.add_trace(go.Scatter(
+                x=elec_angles[:len(lac_vals)], y=lac_uh,
+                mode='lines', name='Lac',
+                line=dict(color='#d35400', width=2),
+                connectgaps=False
+            ))
+        
+        phase_inductance_fig.update_layout(
+            title='Phase Inductances (Laa, Lab, Lac) vs Electrical Rotor Position',
+            xaxis_title='Electrical Rotor Position (°)',
+            yaxis_title='Inductance (µH)',
+            hovermode='x unified',
+            template='plotly_white',
+            showlegend=True,
+            legend=dict(x=1.02, y=1),
+            margin=dict(l=50, r=150, t=50, b=50),
+            width=1400,
+            height=400
+        )
+        if len(elec_angles) > 0 and len(laa_vals) > 0:
+            phase_inductance_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
+            phase_inductance_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+        
+        return flux_fig, backmf_fig, torque_fig, current_fig, inductance_fig, phase_inductance_fig
     
     def finalize(self) -> None:
         """Save plots and keep server running."""
@@ -496,7 +719,7 @@ class DashLivePlotter:
             # Create and save plots
             try:
                 print("\nSaving plots to PNG files...")
-                flux_fig, backmf_fig, torque_fig, current_fig = self._create_plots()
+                flux_fig, backmf_fig, torque_fig, current_fig, inductance_fig, phase_inductance_fig = self._create_plots()
                 
                 pio.write_image(flux_fig, self.output_dir / "flux_linkage.png", width=1400, height=400)
                 print(f"  ✓ {self.output_dir / 'flux_linkage.png'}")
@@ -509,6 +732,14 @@ class DashLivePlotter:
                 
                 pio.write_image(current_fig, self.output_dir / "currents.png", width=1400, height=400)
                 print(f"  ✓ {self.output_dir / 'currents.png'}")
+                
+                # Save inductance plots if data is available
+                if self.data['ld_vals'] and len(self.data['ld_vals']) > 0:
+                    pio.write_image(inductance_fig, self.output_dir / "inductances.png", width=1400, height=400)
+                    print(f"  ✓ {self.output_dir / 'inductances.png'}")
+                    
+                    pio.write_image(phase_inductance_fig, self.output_dir / "phase_inductances.png", width=1400, height=400)
+                    print(f"  ✓ {self.output_dir / 'phase_inductances.png'}")
                 
                 print("\nAll plots saved successfully!")
             except Exception as e:

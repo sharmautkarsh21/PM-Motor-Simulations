@@ -26,6 +26,7 @@ Thumbs.db
 
 # Test files (optional)
 test_*.py
+IPM_transient_V3.py
 
 
 # Test files and folders
