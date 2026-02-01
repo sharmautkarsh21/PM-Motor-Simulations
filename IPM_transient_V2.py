@@ -34,10 +34,10 @@ MOTOR_DEPTH_MM = 134.0  # axial length of motor in mm (from TeslaModel3.fem [Dep
 RPM = 3000.0  # mechanical speed
 CURRENT_RMS = 400.0  # A, per phase RMS
 CURRENT_ANGLE_DEG = 51.0  # electrical angle offset of Phase A
-STEPS = 48  # number of solves across the simulation span
+STEPS = 72  # number of solves across the simulation span
 POLE_PAIRS = 3  # Tesla Model 3 has 6 poles = 3 pole pairs
 ROTOR_GROUP = 2  # group id for rotor + magnets (not used in sliding band approach)
-FULL_CYCLE = False  # True = simulate full electrical cycle (360°), False = 1/6 cycle (60°)
+FULL_CYCLE = True  # True = simulate full electrical cycle (360°), False = 1/6 cycle (60°)
 INITIAL_ROTOR_POSITION_DEG = 10.0  # Starting mechanical rotor position in degrees
 ENABLE_LIVE_PLOT = True  # True = show live updating plot during simulation
 SAVE_CSV = True  # True = save results to CSV file
@@ -85,7 +85,7 @@ class IPMTransientSimulator:
     """Runs a transient-like stepped solution in FEMM."""
 
     def __init__(self, fem_file: str, pole_pairs: int = 4, rotor_group: int = 2, enable_live_plot: bool = True, use_dash: bool = True,
-                 enable_inductance_calc: bool = False, magnet_material_name: str = "BMN-52UH"):
+                 enable_inductance_calc: bool = False, magnet_material_name: str = "BMN-52UH", full_cycle: bool = False):
         self.fem_file = fem_file
         self.model_name = Path(fem_file).stem
         self.pole_pairs = pole_pairs
@@ -98,7 +98,8 @@ class IPMTransientSimulator:
         
         # Use Dash live plotter when available; otherwise disable live plotting
         if enable_live_plot and use_dash and DASH_AVAILABLE:
-            self.live_plotter = DashLivePlotter(enable_live_plot=True)
+            max_elec_angle = 360.0 if full_cycle else 60.0
+            self.live_plotter = DashLivePlotter(enable_live_plot=True, max_electrical_angle=max_elec_angle)
             self.using_dash = True
         else:
             self.live_plotter = None
@@ -504,7 +505,8 @@ def main() -> None:
     sim = IPMTransientSimulator(fem_path, pole_pairs=pole_pairs, rotor_group=rotor_group, 
                                  enable_live_plot=ENABLE_LIVE_PLOT, use_dash=True,
                                  enable_inductance_calc=enable_inductance, 
-                                 magnet_material_name=magnet_material)
+                                 magnet_material_name=magnet_material,
+                                 full_cycle=full_cycle)
     
     if enable_inductance:
         print(f"\n*** Inductance calculation ENABLED (using frozen permeability method) ***")

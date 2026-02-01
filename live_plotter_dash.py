@@ -54,9 +54,10 @@ class TimeStepResult:
 class DashLivePlotter:
     """Interactive web-based live plotter using Plotly Dash."""
     
-    def __init__(self, enable_live_plot: bool = True, update_interval_ms: int = 100):
+    def __init__(self, enable_live_plot: bool = True, update_interval_ms: int = 100, max_electrical_angle: float = 360.0):
         self.enable_live_plot = enable_live_plot and DASH_AVAILABLE
         self.update_interval_ms = update_interval_ms
+        self.max_electrical_angle = max_electrical_angle
         self.app = None
         self.server_thread = None
         self.output_dir = Path(__file__).resolve().parent / "output"
@@ -483,6 +484,9 @@ class DashLivePlotter:
             lq_vals = self.data['lq_vals'].copy()
             l0_vals = self.data['l0_vals'].copy()
             saliency_vals = self.data['saliency_vals'].copy()
+            laa_vals = self.data['laa_vals'].copy()
+            lab_vals = self.data['lab_vals'].copy()
+            lac_vals = self.data['lac_vals'].copy()
         
         time_backmf_ms = [t * 1000 for t in time_vals[1:]] if len(time_vals) > 1 else []
         
@@ -521,7 +525,7 @@ class DashLivePlotter:
             height=400
         )
         flux_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
-        flux_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+        flux_fig.add_vline(x=self.max_electrical_angle, line_dash="dash", line_color="gray", opacity=0.3)
         
         # Back-emf plot
         backmf_fig = go.Figure()
@@ -581,7 +585,7 @@ class DashLivePlotter:
             height=400
         )
         torque_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
-        torque_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+        torque_fig.add_vline(x=self.max_electrical_angle, line_dash="dash", line_color="gray", opacity=0.3)
         
         # Current plot
         current_fig = go.Figure()
@@ -618,7 +622,7 @@ class DashLivePlotter:
             height=400
         )
         current_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
-        current_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+        current_fig.add_vline(x=self.max_electrical_angle, line_dash="dash", line_color="gray", opacity=0.3)
         
         # Inductance plot (Ld, Lq, L0)
         inductance_fig = go.Figure()
@@ -661,7 +665,7 @@ class DashLivePlotter:
         )
         if len(elec_angles) > 0 and len(ld_vals) > 0:
             inductance_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
-            inductance_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+            inductance_fig.add_vline(x=self.max_electrical_angle, line_dash="dash", line_color="gray", opacity=0.3)
         
         # Phase inductance plot (Laa, Lab, Lac)
         phase_inductance_fig = go.Figure()
@@ -703,7 +707,7 @@ class DashLivePlotter:
         )
         if len(elec_angles) > 0 and len(laa_vals) > 0:
             phase_inductance_fig.add_vline(x=0, line_dash="dash", line_color="gray", opacity=0.3)
-            phase_inductance_fig.add_vline(x=360, line_dash="dash", line_color="gray", opacity=0.3)
+            phase_inductance_fig.add_vline(x=self.max_electrical_angle, line_dash="dash", line_color="gray", opacity=0.3)
         
         return flux_fig, backmf_fig, torque_fig, current_fig, inductance_fig, phase_inductance_fig
     
@@ -721,6 +725,7 @@ class DashLivePlotter:
                 print("\nSaving plots to PNG files...")
                 flux_fig, backmf_fig, torque_fig, current_fig, inductance_fig, phase_inductance_fig = self._create_plots()
                 
+                # Save basic plots (always available)
                 pio.write_image(flux_fig, self.output_dir / "flux_linkage.png", width=1400, height=400)
                 print(f"  ✓ {self.output_dir / 'flux_linkage.png'}")
                 
@@ -733,15 +738,23 @@ class DashLivePlotter:
                 pio.write_image(current_fig, self.output_dir / "currents.png", width=1400, height=400)
                 print(f"  ✓ {self.output_dir / 'currents.png'}")
                 
-                # Save inductance plots if data is available
+                # Save inductance plots only if data is available
                 if self.data['ld_vals'] and len(self.data['ld_vals']) > 0:
-                    pio.write_image(inductance_fig, self.output_dir / "inductances.png", width=1400, height=400)
-                    print(f"  ✓ {self.output_dir / 'inductances.png'}")
+                    try:
+                        pio.write_image(inductance_fig, self.output_dir / "inductances.png", width=1400, height=400)
+                        print(f"  ✓ {self.output_dir / 'inductances.png'}")
+                    except Exception as e:
+                        print(f"  ⚠ Could not save inductances.png: {e}")
                     
-                    pio.write_image(phase_inductance_fig, self.output_dir / "phase_inductances.png", width=1400, height=400)
-                    print(f"  ✓ {self.output_dir / 'phase_inductances.png'}")
+                    try:
+                        pio.write_image(phase_inductance_fig, self.output_dir / "phase_inductances.png", width=1400, height=400)
+                        print(f"  ✓ {self.output_dir / 'phase_inductances.png'}")
+                    except Exception as e:
+                        print(f"  ⚠ Could not save phase_inductances.png: {e}")
+                else:
+                    print("  ℹ Inductance plots skipped (ENABLE_INDUCTANCE_CALC was False)")
                 
-                print("\nAll plots saved successfully!")
+                print("\nAll available plots saved successfully!")
             except Exception as e:
                 print(f"\nWarning: Could not save plots as PNG: {e}")
                 print("You may need to install: pip install kaleido")
